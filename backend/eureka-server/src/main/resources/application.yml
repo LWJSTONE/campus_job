@@ -1,0 +1,32 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+  client:
+    # 表示是否将自己注册到Eureka Server，默认为true
+    register-with-eureka: false
+    # 表示是否从Eureka Server获取注册信息，默认为true
+    fetch-registry: false
+    service-url:
+      # Eureka Server的地址，如果有多个Eureka Server，用逗号分隔
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    # 关闭自我保护机制，保证不可用服务及时剔除
+    enable-self-preservation: false
+    # 剔除服务的时间间隔（毫秒）
+    eviction-interval-timer-in-ms: 5000
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.campusjob: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"

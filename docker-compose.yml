@@ -1,0 +1,270 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: campus-job-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456
+      MYSQL_DATABASE: campus_job
+      MYSQL_USER: campus_user
+      MYSQL_PASSWORD: campus123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/sql:/docker-entrypoint-initdb.d
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: campus-job-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ 消息队列
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: campus-job-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Eureka 服务注册中心
+  eureka-server:
+    build:
+      context: .
+      dockerfile: docker/eureka-server/Dockerfile
+    container_name: campus-job-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_SERVER_HOST=eureka-server
+      - EUREKA_SERVER_PORT=8761
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - campus-network
+    restart: always
+
+  # Config 配置中心
+  config-server:
+    build:
+      context: .
+      dockerfile: docker/config-server/Dockerfile
+    container_name: campus-job-config
+    ports:
+      - "8888:8888"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - campus-network
+    restart: always
+
+  # Gateway 网关
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway/Dockerfile
+    container_name: campus-job-gateway
+    ports:
+      - "10000:10000"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - eureka-server
+      - redis
+    networks:
+      - campus-network
+    restart: always
+
+  # Auth 认证服务
+  auth-service:
+    build:
+      context: .
+      dockerfile: docker/auth-service/Dockerfile
+    container_name: campus-job-auth
+    ports:
+      - "8001:8001"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=campus_job
+      - MYSQL_USERNAME=campus_user
+      - MYSQL_PASSWORD=campus123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - eureka-server
+      - mysql
+      - redis
+    networks:
+      - campus-network
+    restart: always
+
+  # User 用户服务
+  user-service:
+    build:
+      context: .
+      dockerfile: docker/user-service/Dockerfile
+    container_name: campus-job-user
+    ports:
+      - "8002:8002"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=campus_job
+      - MYSQL_USERNAME=campus_user
+      - MYSQL_PASSWORD=campus123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - eureka-server
+      - mysql
+      - redis
+    networks:
+      - campus-network
+    restart: always
+
+  # Job 兼职服务
+  job-service:
+    build:
+      context: .
+      dockerfile: docker/job-service/Dockerfile
+    container_name: campus-job-job
+    ports:
+      - "8003:8003"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=campus_job
+      - MYSQL_USERNAME=campus_user
+      - MYSQL_PASSWORD=campus123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin123
+    depends_on:
+      - eureka-server
+      - mysql
+      - redis
+      - rabbitmq
+    networks:
+      - campus-network
+    restart: always
+
+  # Application 申请服务
+  application-service:
+    build:
+      context: .
+      dockerfile: docker/application-service/Dockerfile
+    container_name: campus-job-application
+    ports:
+      - "8004:8004"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=campus_job
+      - MYSQL_USERNAME=campus_user
+      - MYSQL_PASSWORD=campus123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin123
+    depends_on:
+      - eureka-server
+      - mysql
+      - redis
+      - rabbitmq
+    networks:
+      - campus-network
+    restart: always
+
+  # Message 消息服务
+  message-service:
+    build:
+      context: .
+      dockerfile: docker/message-service/Dockerfile
+    container_name: campus-job-message
+    ports:
+      - "8005:8005"
+    environment:
+      - EUREKA_SERVER_URL=http://eureka-server:8761/eureka/
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=campus_job
+      - MYSQL_USERNAME=campus_user
+      - MYSQL_PASSWORD=campus123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=admin
+      - RABBITMQ_PASSWORD=admin123
+    depends_on:
+      - eureka-server
+      - mysql
+      - redis
+      - rabbitmq
+    networks:
+      - campus-network
+    restart: always
+
+  # Frontend 前端
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: campus-job-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+    networks:
+      - campus-network
+    restart: always
+
+networks:
+  campus-network:
+    driver: bridge
+
+volumes:
+  mysql-data:

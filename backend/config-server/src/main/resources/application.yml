@@ -1,0 +1,29 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        git:
+          # 配置文件存储在本地文件系统（简化部署，适合零基础）
+          uri: file://${user.home}/campus-job-config
+          # 或者使用Git仓库：https://github.com/your-repo/config-repo
+          search-paths: /
+          default-label: main
+    # Eureka配置
+    eureka:
+      client:
+        service-url:
+          defaultZone: http://localhost:8761/eureka/
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.campusjob: DEBUG
+    org.springframework.cloud.config: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
